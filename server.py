@@ -43,6 +43,7 @@ def get_compute_platform():
 # Engines
 
 class Engine(object):
+    hf_token = ""
     def __init__(self):
         pass
 
@@ -53,7 +54,9 @@ class EngineStableDiffusion(Engine):
     def __init__(self, pipe, sibling=None):
         super().__init__()
         if sibling == None:
-            self.engine = pipe.from_pretrained( "CompVis/stable-diffusion-v1-4", use_auth_token=True )
+            token_file = open("token.txt", "r")
+            token = token_file.read()
+            self.engine = pipe.from_pretrained( "CompVis/stable-diffusion-v1-4", use_auth_token=token.strip() )
         else:
             self.engine = pipe(
                 vae=sibling.engine.vae,
