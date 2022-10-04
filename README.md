@@ -12,7 +12,7 @@ A [conda](https://conda.io) environment named `sd-api-server` can be created and
 Full procedure:
 
 - Install Python.
-- Install [conda](https://conda.io).
+- Install [conda](https://conda.io/projects/conda/en/latest/user-guide/install/download.html).
 
 ```
 % cd stable-diffusion-api-server
