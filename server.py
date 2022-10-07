@@ -1,3 +1,4 @@
+import mimetypes
 import re
 import time
 import inspect
@@ -99,11 +100,11 @@ app     = flask.Flask( __name__ )
 # Initialize engine manager:
 manager = EngineManager()
 # Add supported engines to manager:
-manager.add_engine( 'stable_txt2img', EngineStableDiffusion( VVStableDiffusionPipeline,        sibling=None ) )
-manager.add_engine( 'stable_img2img', EngineStableDiffusion( VVStableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
-manager.add_engine( 'stable_inpaint', EngineStableDiffusion( VVStableDiffusionInpaintPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'stable_txt2img', EngineStableDiffusion( StableDiffusionPipeline,        sibling=None ) )
+manager.add_engine( 'stable_img2img', EngineStableDiffusion( StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'stable_inpaint', EngineStableDiffusion( StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
 
-@app.route('/v1/stable_txt2img', methods=['POST'])
+@app.route('/txt2img', methods=['POST'])
 def stable_txt2img():
     # Retrieve engine:
     engine = manager.get_engine( 'stable_txt2img' )
@@ -133,16 +134,22 @@ def stable_txt2img():
         }
         # Perform inference:
         outs_pil = engine.process( args_dict )
-        # Append output:
         output_data[ 'status' ] = 'success'
-        output_data[ 'images' ] = [ pil_to_b64( out_pil.convert( 'RGB' ) ) for out_pil in outs_pil ]
+        images = []
+        # output_data[ 'images ' ] = []
+        for image in outs_pil:
+            images.append({
+                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
+                'mimetype': 'image/png'
+            })
+        output_data[ 'images' ] = images
     else:
         # Append output:
         output_data[ 'status' ] = 'failure'
     # Return output:
     return flask.jsonify( output_data )
 
-@app.route('/v1/stable_img2img', methods=['POST'])
+@app.route('/img2img', methods=['POST'])
 def stable_img2img():
     # Retrieve engine:
     engine = manager.get_engine( 'stable_img2img' )
@@ -179,14 +186,21 @@ def stable_img2img():
         outs_pil = engine.process( args_dict )
         # Append output:
         output_data[ 'status' ] = 'success'
-        output_data[ 'images' ] = [ pil_to_b64( out_pil.convert( 'RGB' ) ) for out_pil in outs_pil ]
+        images = []
+        # output_data[ 'images ' ] = []
+        for image in outs_pil:
+            images.append({
+                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
+                'mimetype': 'image/png'
+            })
+        output_data[ 'images' ] = images
     else:
         # Append output:
         output_data[ 'status' ] = 'failure'
     # Return output:
     return flask.jsonify( output_data )
 
-@app.route('/v1/stable_inpaint', methods=['POST'])
+@app.route('/masking', methods=['POST'])
 def stable_inpaint():
     # Retrieve engine:
     engine = manager.get_engine( 'stable_inpaint' )
@@ -228,7 +242,14 @@ def stable_inpaint():
         outs_pil = engine.process( args_dict )
         # Append output:
         output_data[ 'status' ] = 'success'
-        output_data[ 'images' ] = [ pil_to_b64( out_pil.convert( 'RGB' ) ) for out_pil in outs_pil ]
+        images = []
+        # output_data[ 'images ' ] = []
+        for image in outs_pil:
+            images.append({
+                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
+                'mimetype': 'image/png'
+            })
+        output_data[ 'images' ] = images        
     else:
         # Append output:
         output_data[ 'status' ] = 'failure'

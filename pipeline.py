@@ -38,7 +38,7 @@ def preprocess_mask(mask):
 ##################################################
 # Models
 
-class VVStableDiffusionPipeline(diffusers.DiffusionPipeline):
+class StableDiffusionPipeline(diffusers.DiffusionPipeline):
     def __init__(
         self,
         vae: diffusers.AutoencoderKL,
@@ -217,7 +217,7 @@ class VVStableDiffusionPipeline(diffusers.DiffusionPipeline):
 
         return image
 
-class VVStableDiffusionImg2ImgPipeline(diffusers.DiffusionPipeline):
+class StableDiffusionImg2ImgPipeline(diffusers.DiffusionPipeline):
     def __init__(
         self,
         vae: diffusers.AutoencoderKL,
@@ -394,7 +394,7 @@ class VVStableDiffusionImg2ImgPipeline(diffusers.DiffusionPipeline):
 
         return image
 
-class VVStableDiffusionInpaintPipeline(diffusers.DiffusionPipeline):
+class StableDiffusionInpaintPipeline(diffusers.DiffusionPipeline):
     def __init__(
         self,
         vae: diffusers.AutoencoderKL,

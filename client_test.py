@@ -31,7 +31,7 @@ def b64_to_pil(input):
     return output
 
 def test_txt2img():
-    ENDPOINT = "http://0.0.0.0:8080/v1/stable_txt2img"
+    ENDPOINT = "http://0.0.0.0:8080/txt2img"
     
     data = {
         'prompt':'a photo of a dog sitting on a bench',
@@ -59,7 +59,7 @@ def test_txt2img():
                 plt.close()
 
 def test_img2img():
-    ENDPOINT = "http://0.0.0.0:8080/v1/stable_img2img"    
+    ENDPOINT = "http://0.0.0.0:8080/img2img"    
     IMG_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg'
 
     data = {
@@ -85,7 +85,7 @@ def test_img2img():
                 plt.close()
 
 def test_inpaint():
-    ENDPOINT = "http://0.0.0.0:8080/v1/stable_inpaint"    
+    ENDPOINT = "http://0.0.0.0:8080/inpaint"    
     IMG_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo.png'
     MSK_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo_mask.png'
 
