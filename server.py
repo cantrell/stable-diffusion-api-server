@@ -102,7 +102,7 @@ manager = EngineManager()
 # Add supported engines to manager:
 manager.add_engine( 'stable_txt2img', EngineStableDiffusion( StableDiffusionPipeline,        sibling=None ) )
 manager.add_engine( 'stable_img2img', EngineStableDiffusion( StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
-manager.add_engine( 'stable_inpaint', EngineStableDiffusion( StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'stable_masking', EngineStableDiffusion( StableDiffusionMaskingPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
 
 @app.route('/txt2img', methods=['POST'])
 def stable_txt2img():
@@ -111,7 +111,7 @@ def stable_txt2img():
     # Prepare output container:
     output_data = {}
     # Handle request:
-    if 'prompt' in flask.request.form:
+    try:
         # Get input text from request:
         input_text = flask.request.form[ 'prompt' ]
         # Get config:
@@ -136,17 +136,17 @@ def stable_txt2img():
         outs_pil = engine.process( args_dict )
         output_data[ 'status' ] = 'success'
         images = []
-        # output_data[ 'images ' ] = []
         for image in outs_pil:
             images.append({
                 'base64' : pil_to_b64( image.convert( 'RGB' ) ),
                 'mimetype': 'image/png'
             })
         output_data[ 'images' ] = images
-    else:
+    except RuntimeError as e:
         # Append output:
         output_data[ 'status' ] = 'failure'
-    # Return output:
+        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
+        print(str(e))
     return flask.jsonify( output_data )
 
 @app.route('/img2img', methods=['POST'])
@@ -156,7 +156,7 @@ def stable_img2img():
     # Prepare output container:
     output_data = {}
     # Handle request:
-    if 'prompt' in flask.request.form:
+    try:
         # Get input text from request:
         input_text = flask.request.form[ 'prompt' ]
         # Get init image from request:
@@ -187,27 +187,26 @@ def stable_img2img():
         # Append output:
         output_data[ 'status' ] = 'success'
         images = []
-        # output_data[ 'images ' ] = []
         for image in outs_pil:
             images.append({
                 'base64' : pil_to_b64( image.convert( 'RGB' ) ),
                 'mimetype': 'image/png'
             })
         output_data[ 'images' ] = images
-    else:
-        # Append output:
+    except RuntimeError as e:
         output_data[ 'status' ] = 'failure'
-    # Return output:
+        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
+        print(str(e))
     return flask.jsonify( output_data )
 
 @app.route('/masking', methods=['POST'])
-def stable_inpaint():
+def stable_masking():
     # Retrieve engine:
-    engine = manager.get_engine( 'stable_inpaint' )
+    engine = manager.get_engine( 'stable_masking' )
     # Prepare output container:
     output_data = {}
     # Handle request:
-    if 'prompt' in flask.request.form:
+    try:
         # Get input text from request:
         input_text = flask.request.form[ 'prompt' ]
         # Get init image from request:
@@ -240,20 +239,18 @@ def stable_inpaint():
         }
         # Perform inference:
         outs_pil = engine.process( args_dict )
-        # Append output:
         output_data[ 'status' ] = 'success'
         images = []
-        # output_data[ 'images ' ] = []
         for image in outs_pil:
             images.append({
                 'base64' : pil_to_b64( image.convert( 'RGB' ) ),
                 'mimetype': 'image/png'
             })
         output_data[ 'images' ] = images        
-    else:
-        # Append output:
+    except RuntimeError as e:
         output_data[ 'status' ] = 'failure'
-    # Return output:
+        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
+        print(str(e))
     return flask.jsonify( output_data )
 
 

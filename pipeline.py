@@ -394,7 +394,7 @@ class StableDiffusionImg2ImgPipeline(diffusers.DiffusionPipeline):
 
         return image
 
-class StableDiffusionInpaintPipeline(diffusers.DiffusionPipeline):
+class StableDiffusionMaskingPipeline(diffusers.DiffusionPipeline):
     def __init__(
         self,
         vae: diffusers.AutoencoderKL,
