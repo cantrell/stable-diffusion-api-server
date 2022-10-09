@@ -2,6 +2,7 @@ import mimetypes
 import re
 import time
 import inspect
+import random
 import flask
 import base64
 from PIL import Image
@@ -124,7 +125,7 @@ def stable_txt2img():
         config_steps    = retrieve_param( 'num_inference_steps', flask.request.form, int,   100 )
         config_guidance = retrieve_param( 'guidance_scale',      flask.request.form, float, 7.5 )
         config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   0 )
+        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
         # Prepare seeder:
         generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
         # Formulate args:
@@ -173,7 +174,7 @@ def stable_img2img():
         config_stength  = retrieve_param( 'strength',            flask.request.form, float, 0.8 )
         config_ddim_eta = retrieve_param( 'eta',                 flask.request.form, float, 0.0 )
         config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   0 )
+        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
         # Prepare seeder:
         generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
         # Formulate args:
@@ -227,7 +228,7 @@ def stable_masking():
         config_stength  = retrieve_param( 'strength',            flask.request.form, float, 0.8 )
         config_ddim_eta = retrieve_param( 'eta',                 flask.request.form, float, 0.0 )
         config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   0 )
+        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
         # Prepare seeder:
         generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
         # Formulate args:
