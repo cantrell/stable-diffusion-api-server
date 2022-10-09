@@ -104,6 +104,10 @@ manager.add_engine( 'stable_txt2img', EngineStableDiffusion( StableDiffusionPipe
 manager.add_engine( 'stable_img2img', EngineStableDiffusion( StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
 manager.add_engine( 'stable_masking', EngineStableDiffusion( StableDiffusionMaskingPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
 
+@app.route('/ping', methods=['GET'])
+def stable_ping():
+    return flask.jsonify( {'status':'success'} )
+
 @app.route('/txt2img', methods=['POST'])
 def stable_txt2img():
     # Retrieve engine:
@@ -255,4 +259,4 @@ def stable_masking():
 
 
 if __name__ == '__main__':
-    app.run( host='0.0.0.0', port=8080, debug=False )
+    app.run( host='0.0.0.0', port=1337, debug=False )
