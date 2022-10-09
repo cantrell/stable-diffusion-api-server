@@ -101,9 +101,9 @@ app     = flask.Flask( __name__ )
 # Initialize engine manager:
 manager = EngineManager()
 # Add supported engines to manager:
-manager.add_engine( 'stable_txt2img', EngineStableDiffusion( StableDiffusionPipeline,        sibling=None ) )
-manager.add_engine( 'stable_img2img', EngineStableDiffusion( StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
-manager.add_engine( 'stable_masking', EngineStableDiffusion( StableDiffusionMaskingPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'txt2img', EngineStableDiffusion( StableDiffusionPipeline,        sibling=None ) )
+manager.add_engine( 'img2img', EngineStableDiffusion( StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'masking', EngineStableDiffusion( StableDiffusionMaskingPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
 
 @app.route('/ping', methods=['GET'])
 def stable_ping():
@@ -112,7 +112,7 @@ def stable_ping():
 @app.route('/txt2img', methods=['POST'])
 def stable_txt2img():
     # Retrieve engine:
-    engine = manager.get_engine( 'stable_txt2img' )
+    engine = manager.get_engine( 'txt2img' )
     # Prepare output container:
     output_data = {}
     # Handle request:
@@ -157,7 +157,7 @@ def stable_txt2img():
 @app.route('/img2img', methods=['POST'])
 def stable_img2img():
     # Retrieve engine:
-    engine = manager.get_engine( 'stable_img2img' )
+    engine = manager.get_engine( 'img2img' )
     # Prepare output container:
     output_data = {}
     # Handle request:
@@ -207,7 +207,7 @@ def stable_img2img():
 @app.route('/masking', methods=['POST'])
 def stable_masking():
     # Retrieve engine:
-    engine = manager.get_engine( 'stable_masking' )
+    engine = manager.get_engine( 'masking' )
     # Prepare output container:
     output_data = {}
     # Handle request:
@@ -258,6 +258,79 @@ def stable_masking():
         print(str(e))
     return flask.jsonify( output_data )
 
+
+def _generate(task, args):
+    # Retrieve engine:
+    engine = manager.get_engine( task )
+
+    # Prepare output container:
+    output_data = {}
+
+    # Handle request:
+    try:
+        # Get input text from request:
+        input_text = flask.request.form[ 'prompt' ]
+        if (task == 'img2img' or task == 'masking'):
+        # Get init image from request:
+            init_img_b64 = flask.request.form[ 'init_image' ]
+            init_img_b64 = re.sub( "^data:image/png;base64,", "", init_img_b64 )
+            init_img_pil = b64_to_pil( init_img_b64 )
+        if (task == 'masking'):
+            # Get mask image from request:
+            mask_img_b64 = flask.request.form[ 'mask_image' ]
+            mask_img_b64 = re.sub( "^data:image/png;base64,", "", mask_img_b64 )
+            mask_img_pil = b64_to_pil( mask_img_b64 )
+
+        # Get config:
+        config_width    = retrieve_param( 'width',               flask.request.form, int,   512 )
+        config_height   = retrieve_param( 'height',              flask.request.form, int,   512 )
+        config_steps    = retrieve_param( 'num_inference_steps', flask.request.form, int,   100 )
+        config_guidance = retrieve_param( 'guidance_scale',      flask.request.form, float, 7.5 )
+        config_stength  = retrieve_param( 'strength',            flask.request.form, float, 0.8 )
+        config_ddim_eta = retrieve_param( 'eta',                 flask.request.form, float, 0.0 )
+        config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
+        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
+
+        # Prepare seeder:
+        generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
+
+        # Formulate args:
+        args_dict = {
+            'prompt' : [ input_text ]*config_count,
+            'num_inference_steps' : config_steps,
+            'guidance_scale' : config_guidance,
+            'eta' : config_ddim_eta,
+            'generator' : generator,
+        }
+
+        if (task == 'txt2img'):
+            args_dict[ 'width' ] = config_width
+            args_dict[ 'height' ] = config_height
+
+        if (task == 'img2img' or task == 'masking'):
+            args_dict[ 'init_image' ] = init_img_pil
+            args_dict[ 'strength' ] = config_stength
+
+        if (task == 'masking'):
+            args_dict[ 'mask_image' ] = mask_img_pil
+
+        # Perform inference:
+        outs_pil = engine.process( args_dict )
+
+        # Prepare response
+        output_data[ 'status' ] = 'success'
+        images = []
+        for image in outs_pil:
+            images.append({
+                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
+                'mimetype': 'image/png'
+            })
+        output_data[ 'images' ] = images        
+    except RuntimeError as e:
+        output_data[ 'status' ] = 'failure'
+        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
+        print(str(e))
+    return flask.jsonify( output_data )
 
 if __name__ == '__main__':
     app.run( host='0.0.0.0', port=1337, debug=False )
