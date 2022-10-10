@@ -1,5 +1,7 @@
 # Stable Diffusion API Server
 
+The local inference REST API server for the [Stable Diffusion Photoshop plugin](https://christiancantrell.com/#ai-ml).
+
 ## Requirements
 
 1. Install Python.
@@ -20,7 +22,7 @@ If you are updating the server, make sure to update your Conda environment:
 % conda activate sd-api-server
 ```
 
-You'll also need [a HuggingFace token](https://huggingface.co/settings/tokens). Paste your token into the `token.txt` file, and be sure to save it.
+You'll also need [a HuggingFace token](https://huggingface.co/settings/tokens). Paste your token into a `token.txt` file in this directory, save it, and run the server.
 
 ## To Run
 
