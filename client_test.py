@@ -31,7 +31,7 @@ def b64_to_pil(input):
     return output
 
 def test_txt2img():
-    ENDPOINT = "http://0.0.0.0:8080/v1/stable_txt2img"
+    ENDPOINT = "http://localhost:1337/txt2img"
     
     data = {
         'prompt':'a photo of a dog sitting on a bench',
@@ -51,15 +51,15 @@ def test_txt2img():
 
     if 'status' in response:
         if response[ 'status' ] == 'success':
-            images_b64 = response[ 'images' ]
-            for i, image_b64 in enumerate( images_b64 ):
-                plt.imshow( b64_to_pil( image_b64 ) )
-                plt.show( block=False )
+            images = response[ 'images' ]
+            for i, image in enumerate( images ):
+                plt.imshow( b64_to_pil( image['base64'] ) )
+                plt.show( block=True )
                 plt.pause( 10 )
                 plt.close()
 
 def test_img2img():
-    ENDPOINT = "http://0.0.0.0:8080/v1/stable_img2img"    
+    ENDPOINT = "http://localhost:1337/img2img"    
     IMG_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg'
 
     #IMG_URL  = 'https://minitravellers.co.uk/wp-content/uploads/2019/05/40612080213_81852c19fc_k.jpg'
@@ -79,15 +79,15 @@ def test_img2img():
 
     if 'status' in response:
         if response[ 'status' ] == 'success':
-            images_b64 = response[ 'images' ]
-            for i, image_b64 in enumerate( images_b64 ):
-                plt.imshow( b64_to_pil( image_b64 ) )
-                plt.show( block=False )
+            images = response[ 'images' ]
+            for i, image in enumerate( images ):
+                plt.imshow( b64_to_pil( image['base64'] ) )
+                plt.show( block=True )
                 plt.pause( 10 )
                 plt.close()
 
 def test_inpaint():
-    ENDPOINT = "http://0.0.0.0:8080/v1/stable_inpaint"    
+    ENDPOINT = "http://localhost:1337/masking"    
     IMG_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo.png'
     MSK_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo_mask.png'
 
@@ -107,16 +107,16 @@ def test_inpaint():
 
     if 'status' in response:
         if response[ 'status' ] == 'success':
-            images_b64 = response[ 'images' ]
-            for i, image_b64 in enumerate( images_b64 ):
-                plt.imshow( b64_to_pil( image_b64 ) )
-                plt.show( block=False )
+            images = response[ 'images' ]
+            for i, image in enumerate( images ):
+                plt.imshow( b64_to_pil( image['base64'] ) )
+                plt.show( block=True )
                 plt.pause( 10 )
                 plt.close()
 
 
 # Run tests:
 
-test_txt2img()
-test_img2img()
+# test_txt2img()
+# test_img2img()
 test_inpaint()
