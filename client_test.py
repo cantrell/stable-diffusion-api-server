@@ -31,7 +31,7 @@ def b64_to_pil(input):
     return output
 
 def test_txt2img():
-    ENDPOINT = "http://0.0.0.0:8080/txt2img"
+    ENDPOINT = "http://0.0.0.0:8080/v1/stable_txt2img"
     
     data = {
         'prompt':'a photo of a dog sitting on a bench',
@@ -59,17 +59,19 @@ def test_txt2img():
                 plt.close()
 
 def test_img2img():
-    ENDPOINT = "http://0.0.0.0:8080/img2img"    
+    ENDPOINT = "http://0.0.0.0:8080/v1/stable_img2img"    
     IMG_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg'
 
+    #IMG_URL  = 'https://minitravellers.co.uk/wp-content/uploads/2019/05/40612080213_81852c19fc_k.jpg'
+
     data = {
-        'prompt':'a beautiful fantasy world',
+        'prompt':'a family of pixar characters on vacation in new york',
         'init_image':pil_to_b64( resize_image_preserve_aspect( load_image_from_url( IMG_URL ).convert( 'RGB' ), 512 ) ),
         'num_inference_steps':str( 100 ),
         'guidance_scale':str( 7.5 ),
         'num_outputs':str( 2 ),
         'seed':str( 0 ),
-        'strength':str( 0.8 ),
+        'strength':str( 0.5 ),
         'eta':str( 0.0 ),
     }
 
@@ -85,7 +87,7 @@ def test_img2img():
                 plt.close()
 
 def test_inpaint():
-    ENDPOINT = "http://0.0.0.0:8080/inpaint"    
+    ENDPOINT = "http://0.0.0.0:8080/v1/stable_inpaint"    
     IMG_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo.png'
     MSK_URL  = 'https://raw.githubusercontent.com/CompVis/stable-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo_mask.png'
 

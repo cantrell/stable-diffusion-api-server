@@ -1,14 +1,13 @@
-import mimetypes
 import re
 import time
 import inspect
-import random
 import flask
 import base64
 from PIL import Image
 from io import BytesIO
 
-from pipeline import *
+import torch
+import diffusers
 
 ##################################################
 # Utils
@@ -45,7 +44,6 @@ def get_compute_platform():
 # Engines
 
 class Engine(object):
-    hf_token = ""
     def __init__(self):
         pass
 
@@ -56,9 +54,7 @@ class EngineStableDiffusion(Engine):
     def __init__(self, pipe, sibling=None):
         super().__init__()
         if sibling == None:
-            token_file = open("token.txt", "r")
-            token = token_file.read()
-            self.engine = pipe.from_pretrained( "CompVis/stable-diffusion-v1-4", use_auth_token=token.strip() )
+            self.engine = pipe.from_pretrained( "CompVis/stable-diffusion-v1-4", use_auth_token=True )
         else:
             self.engine = pipe(
                 vae=sibling.engine.vae,
@@ -66,13 +62,14 @@ class EngineStableDiffusion(Engine):
                 tokenizer=sibling.engine.tokenizer,
                 unet=sibling.engine.unet,
                 scheduler=sibling.engine.scheduler,
+                safety_checker=sibling.engine.safety_checker,
                 feature_extractor=sibling.engine.feature_extractor
             )
         self.engine.to( get_compute_platform() )
 
     def process(self, kwargs):
-        images_pil = self.engine( **kwargs )
-        return images_pil
+        output = self.engine( **kwargs )
+        return output.images
 
 class EngineManager(object):
     def __init__(self):
@@ -97,13 +94,13 @@ class EngineManager(object):
 # App
 
 # Initialize app:
-app     = flask.Flask( __name__ )
+app = flask.Flask( __name__ )
 # Initialize engine manager:
 manager = EngineManager()
 # Add supported engines to manager:
-manager.add_engine( 'txt2img', EngineStableDiffusion( StableDiffusionPipeline,        sibling=None ) )
-manager.add_engine( 'img2img', EngineStableDiffusion( StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
-manager.add_engine( 'masking', EngineStableDiffusion( StableDiffusionMaskingPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None ) )
+manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'inpaint', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
 
 @app.route('/ping', methods=['GET'])
 def stable_ping():
@@ -111,155 +108,18 @@ def stable_ping():
 
 @app.route('/txt2img', methods=['POST'])
 def stable_txt2img():
-    # Retrieve engine:
-    engine = manager.get_engine( 'txt2img' )
-    # Prepare output container:
-    output_data = {}
-    # Handle request:
-    try:
-        # Get input text from request:
-        input_text = flask.request.form[ 'prompt' ]
-        # Get config:
-        config_width    = retrieve_param( 'width',               flask.request.form, int,   512 )
-        config_height   = retrieve_param( 'height',              flask.request.form, int,   512 )
-        config_steps    = retrieve_param( 'num_inference_steps', flask.request.form, int,   100 )
-        config_guidance = retrieve_param( 'guidance_scale',      flask.request.form, float, 7.5 )
-        config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
-        # Prepare seeder:
-        generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
-        # Formulate args:
-        args_dict = {
-            'prompt' : [ input_text ]*config_count,
-            'width' : config_width, 
-            'height' : config_height, 
-            'num_inference_steps' : config_steps,
-            'guidance_scale' : config_guidance,
-            'generator' : generator,
-        }
-        # Perform inference:
-        outs_pil = engine.process( args_dict )
-        output_data[ 'status' ] = 'success'
-        images = []
-        for image in outs_pil:
-            images.append({
-                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
-                'mimetype': 'image/png'
-            })
-        output_data[ 'images' ] = images
-    except RuntimeError as e:
-        # Append output:
-        output_data[ 'status' ] = 'failure'
-        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
-        print(str(e))
-    return flask.jsonify( output_data )
+    return _generate('txt2img')
 
 @app.route('/img2img', methods=['POST'])
 def stable_img2img():
-    # Retrieve engine:
-    engine = manager.get_engine( 'img2img' )
-    # Prepare output container:
-    output_data = {}
-    # Handle request:
-    try:
-        # Get input text from request:
-        input_text = flask.request.form[ 'prompt' ]
-        # Get init image from request:
-        init_img_b64 = flask.request.form[ 'init_image' ]
-        init_img_b64 = re.sub( "^data:image/png;base64,", "", init_img_b64 )
-        init_img_pil = b64_to_pil( init_img_b64 )
-        # Get config:
-        config_steps    = retrieve_param( 'num_inference_steps', flask.request.form, int,   100 )
-        config_guidance = retrieve_param( 'guidance_scale',      flask.request.form, float, 7.5 )
-        config_stength  = retrieve_param( 'strength',            flask.request.form, float, 0.8 )
-        config_ddim_eta = retrieve_param( 'eta',                 flask.request.form, float, 0.0 )
-        config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
-        # Prepare seeder:
-        generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
-        # Formulate args:
-        args_dict = {
-            'prompt' : [ input_text ]*config_count,
-            'init_image' : init_img_pil,
-            'num_inference_steps' : config_steps,
-            'guidance_scale' : config_guidance,
-            'strength' : config_stength,
-            'eta' : config_ddim_eta,
-            'generator' : generator,
-        }
-        # Perform inference:
-        outs_pil = engine.process( args_dict )
-        # Append output:
-        output_data[ 'status' ] = 'success'
-        images = []
-        for image in outs_pil:
-            images.append({
-                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
-                'mimetype': 'image/png'
-            })
-        output_data[ 'images' ] = images
-    except RuntimeError as e:
-        output_data[ 'status' ] = 'failure'
-        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
-        print(str(e))
-    return flask.jsonify( output_data )
+    return _generate('img2img')
 
 @app.route('/masking', methods=['POST'])
 def stable_masking():
-    # Retrieve engine:
-    engine = manager.get_engine( 'masking' )
-    # Prepare output container:
-    output_data = {}
-    # Handle request:
-    try:
-        # Get input text from request:
-        input_text = flask.request.form[ 'prompt' ]
-        # Get init image from request:
-        init_img_b64 = flask.request.form[ 'init_image' ]
-        init_img_b64 = re.sub( "^data:image/png;base64,", "", init_img_b64 )
-        init_img_pil = b64_to_pil( init_img_b64 )
-        # Get mask image from request:
-        mask_img_b64 = flask.request.form[ 'mask_image' ]
-        mask_img_b64 = re.sub( "^data:image/png;base64,", "", mask_img_b64 )
-        mask_img_pil = b64_to_pil( mask_img_b64 )
-        # Get config:
-        config_steps    = retrieve_param( 'num_inference_steps', flask.request.form, int,   100 )
-        config_guidance = retrieve_param( 'guidance_scale',      flask.request.form, float, 7.5 )
-        config_stength  = retrieve_param( 'strength',            flask.request.form, float, 0.8 )
-        config_ddim_eta = retrieve_param( 'eta',                 flask.request.form, float, 0.0 )
-        config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
-        # Prepare seeder:
-        generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
-        # Formulate args:
-        args_dict = {
-            'prompt' : [ input_text ]*config_count,
-            'init_image' : init_img_pil,
-            'mask_image' : mask_img_pil,
-            'num_inference_steps' : config_steps,
-            'guidance_scale' : config_guidance,
-            'strength' : config_stength,
-            'eta' : config_ddim_eta,
-            'generator' : generator,
-        }
-        # Perform inference:
-        outs_pil = engine.process( args_dict )
-        output_data[ 'status' ] = 'success'
-        images = []
-        for image in outs_pil:
-            images.append({
-                'base64' : pil_to_b64( image.convert( 'RGB' ) ),
-                'mimetype': 'image/png'
-            })
-        output_data[ 'images' ] = images        
-    except RuntimeError as e:
-        output_data[ 'status' ] = 'failure'
-        output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
-        print(str(e))
-    return flask.jsonify( output_data )
+    return _generate('masking')
 
-
-def _generate(task, args):
+def _generate(task):
+    print(task)
     # Retrieve engine:
     engine = manager.get_engine( task )
 
@@ -268,50 +128,35 @@ def _generate(task, args):
 
     # Handle request:
     try:
-        # Get input text from request:
-        input_text = flask.request.form[ 'prompt' ]
-        if (task == 'img2img' or task == 'masking'):
-        # Get init image from request:
-            init_img_b64 = flask.request.form[ 'init_image' ]
-            init_img_b64 = re.sub( "^data:image/png;base64,", "", init_img_b64 )
-            init_img_pil = b64_to_pil( init_img_b64 )
-        if (task == 'masking'):
-            # Get mask image from request:
-            mask_img_b64 = flask.request.form[ 'mask_image' ]
-            mask_img_b64 = re.sub( "^data:image/png;base64,", "", mask_img_b64 )
-            mask_img_pil = b64_to_pil( mask_img_b64 )
-
-        # Get config:
-        config_width    = retrieve_param( 'width',               flask.request.form, int,   512 )
-        config_height   = retrieve_param( 'height',              flask.request.form, int,   512 )
-        config_steps    = retrieve_param( 'num_inference_steps', flask.request.form, int,   100 )
-        config_guidance = retrieve_param( 'guidance_scale',      flask.request.form, float, 7.5 )
-        config_stength  = retrieve_param( 'strength',            flask.request.form, float, 0.8 )
-        config_ddim_eta = retrieve_param( 'eta',                 flask.request.form, float, 0.0 )
-        config_count    = retrieve_param( 'num_outputs',         flask.request.form, int,   1 )
-        config_seed     = retrieve_param( 'seed',                flask.request.form, int,   random.getrandbits(32) )
-
         # Prepare seeder:
-        generator = torch.Generator( device=get_compute_platform() ).manual_seed( config_seed )
+        seed = retrieve_param( 'seed', flask.request.form, int, 0 )
+        generator = torch.Generator( device=get_compute_platform() ).manual_seed( seed )
+        prompt = flask.request.form[ 'prompt' ]
+        count = retrieve_param( 'num_outputs', flask.request.form, int,   1 )
 
-        # Formulate args:
         args_dict = {
-            'prompt' : [ input_text ]*config_count,
-            'num_inference_steps' : config_steps,
-            'guidance_scale' : config_guidance,
-            'eta' : config_ddim_eta,
-            'generator' : generator,
+            'prompt' : [ prompt ]*count,
+            'num_inference_steps' : retrieve_param( 'num_inference_steps', flask.request.form, int,   100 ),
+            'guidance_scale' : retrieve_param( 'guidance_scale', flask.request.form, float, 7.5 ),
+            'eta' : retrieve_param( 'eta', flask.request.form, float, 0.0 ),
+            'generator' : generator
         }
 
         if (task == 'txt2img'):
-            args_dict[ 'width' ] = config_width
-            args_dict[ 'height' ] = config_height
+            args_dict[ 'width' ] = retrieve_param( 'width', flask.request.form, int,   512 )
+            args_dict[ 'height' ] = retrieve_param( 'height', flask.request.form, int,   512 )
 
         if (task == 'img2img' or task == 'masking'):
+            init_img_b64 = flask.request.form[ 'init_image' ]
+            init_img_b64 = re.sub( '^data:image/png;base64,', '', init_img_b64 )
+            init_img_pil = b64_to_pil( init_img_b64 )
             args_dict[ 'init_image' ] = init_img_pil
-            args_dict[ 'strength' ] = config_stength
+            args_dict[ 'strength' ] = retrieve_param( 'strength', flask.request.form, float, 0.7 )
 
         if (task == 'masking'):
+            mask_img_b64 = flask.request.form[ 'mask_image' ]
+            mask_img_b64 = re.sub( '^data:image/png;base64,', '', mask_img_b64 )
+            mask_img_pil = b64_to_pil( mask_img_b64 )
             args_dict[ 'mask_image' ] = mask_img_pil
 
         # Perform inference:
