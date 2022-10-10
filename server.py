@@ -72,8 +72,7 @@ class EngineStableDiffusion(Engine):
 
     def process(self, kwargs):
         output = self.engine( **kwargs )
-        print(output)
-        return output.images
+        return {'images': output.images, 'nsfw':output.nsfw_content_detected}
 
 class EngineManager(object):
     def __init__(self):
@@ -133,7 +132,12 @@ def _generate(task):
     try:
         # Prepare seeder:
         seed = retrieve_param( 'seed', flask.request.form, int, 0 )
-        generator = torch.Generator( device=get_compute_platform() ).manual_seed( seed )
+        if (seed == 0):
+            generator = torch.Generator( device=get_compute_platform() )
+            see = generator.seed()
+        else:
+            generator = torch.Generator( device=get_compute_platform() ).manual_seed( seed )
+
         prompt = flask.request.form[ 'prompt' ]
         count = retrieve_param( 'num_outputs', flask.request.form, int,   1 )
 
@@ -163,15 +167,16 @@ def _generate(task):
             args_dict[ 'mask_image' ] = mask_img_pil
 
         # Perform inference:
-        outs_pil = engine.process( args_dict )
+        results = engine.process( args_dict )
 
         # Prepare response
         output_data[ 'status' ] = 'success'
         images = []
-        for image in outs_pil:
+        for (image, nsfw) in zip(results['images'], results['nsfw']):
             images.append({
                 'base64' : pil_to_b64( image.convert( 'RGB' ) ),
-                'mimetype': 'image/png'
+                'mimetype': 'image/png',
+                'nsfw': nsfw
             })
         output_data[ 'images' ] = images        
     except RuntimeError as e:
