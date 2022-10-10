@@ -57,7 +57,7 @@ class EngineStableDiffusion(Engine):
         if sibling == None:
             token_file = open('token.txt', 'r')
             token = token_file.read()
-            self.engine = pipe.from_pretrained( "CompVis/stable-diffusion-v1-4", use_auth_token=token.strip() )
+            self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=token.strip() )
         else:
             self.engine = pipe(
                 vae=sibling.engine.vae,
@@ -104,8 +104,8 @@ manager = EngineManager()
 
 # Add supported engines to manager:
 manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None ) )
-manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
-manager.add_engine( 'inpaint', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'stable_txt2img' ) ) )
+manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
+manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
 
 # Define routes:
 @app.route('/ping', methods=['GET'])
