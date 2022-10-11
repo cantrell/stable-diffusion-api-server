@@ -36,7 +36,7 @@ def get_compute_platform(context):
         if torch.cuda.is_available():
             return 'cuda'
         elif torch.backends.mps.is_available() and context == 'engine':
-            return 'cpu'
+            return 'mps'
         else:
             return 'cpu'
     except ImportError:
