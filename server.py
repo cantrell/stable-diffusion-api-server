@@ -30,11 +30,13 @@ def b64_to_pil(input):
     output = Image.open( BytesIO( base64.b64decode( input ) ) )
     return output
 
-def get_compute_platform():
+def get_compute_platform(context):
     try:
         import torch
         if torch.cuda.is_available():
             return 'cuda'
+        elif torch.backends.mps.is_available() and context == 'engine':
+            return 'cpu'
         else:
             return 'cpu'
     except ImportError:
@@ -68,7 +70,7 @@ class EngineStableDiffusion(Engine):
                 safety_checker=sibling.engine.safety_checker,
                 feature_extractor=sibling.engine.feature_extractor
             )
-        self.engine.to( get_compute_platform() )
+        self.engine.to( get_compute_platform('engine') )
 
     def process(self, kwargs):
         output = self.engine( **kwargs )
@@ -138,9 +140,9 @@ def _generate(task):
         total_results = []
         for i in range( count ):
             if (seed == 0):
-                generator = torch.Generator( device=get_compute_platform() )
+                generator = torch.Generator( device=get_compute_platform('generator') )
             else:
-                generator = torch.Generator( device=get_compute_platform() ).manual_seed( seed )
+                generator = torch.Generator( device=get_compute_platform('generator') ).manual_seed( seed )
             new_seed = generator.seed()
             prompt = flask.request.form[ 'prompt' ]
             args_dict = {
