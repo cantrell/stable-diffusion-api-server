@@ -51,7 +51,12 @@ If you want to remove an old environment and create it from scratch (using the p
 % conda activate sd-api-server
 ```
 
-You'll also need [a HuggingFace token](https://huggingface.co/settings/tokens). Copy your token and paste it into a `token.txt` file in same directory as the repo and save it.
+### Hugging Face Configuration
+
+There are two things you need to configure with Hugging Face in order to run the Stable Diffusion model locally:
+
+1. You need to [agree to share your username and email address with Hugging Face](https://huggingface.co/CompVis/stable-diffusion-v1-4) in order to access the model.
+1. You also need to set up [a Hugging Face token](https://huggingface.co/settings/tokens). Once you've create a read-only token, copy and paste it into a `token.txt` file in the same directory as the repo and save it.
 
 Windows and Linux users, you're good to go! All you have to do now is start the server:
 
