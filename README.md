@@ -20,6 +20,8 @@ If you can swing it, for best results, use a dedicated Linux box. Performance on
 
 Windows and Linux:
 
+**(Note that the '%' character below is meant to denote the command prompt; do not include it when copying and pasting.)**
+
 ```
 % conda env create -f environment.yaml
 ```
@@ -90,6 +92,8 @@ If the nightly build didn't work for you — or if you're simply allergic to nig
 % conda activate sd-api-server
 % python3 server.py
 ```
+
+If you get the message `ModuleNotFoundError: No module named 'flask'`, it probably means you're using the wrong version of Python. If you used `python3` then try `python`. If you used `python` then try `python3`. (These are the joys of old versions of Python being preinstalled on Macs.)
 
 Now go be creative!
 
