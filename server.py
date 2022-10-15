@@ -9,6 +9,14 @@ from io import BytesIO
 import torch
 import diffusers
 
+
+##################################################
+# If you want a custom model, add the path here.
+# It will be addressable as POST /custom.
+# custom_model_path = None
+custom_model_path = '/Users/cantrell/Library/CloudStorage/GoogleDrive-christian.cantrell@gmail.com/My Drive/stable_diffusion_weights/ChristianCantrellOutput'
+
+
 ##################################################
 # Utils
 
@@ -54,12 +62,17 @@ class Engine(object):
         return []
 
 class EngineStableDiffusion(Engine):
-    def __init__(self, pipe, sibling=None):
+    def __init__(self, pipe, sibling=None, custom=False):
         super().__init__()
         if sibling == None:
             token_file = open('token.txt', 'r')
             token = token_file.read()
             self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=token.strip() )
+        elif custom:
+            self.engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path,
+                torch_dtype=torch.float16,
+                safety_checker=sibling.engine.safety_checker,
+                feature_extractor=sibling.engine.feature_extractor)
         else:
             self.engine = pipe(
                 vae=sibling.engine.vae,
@@ -105,9 +118,16 @@ app = flask.Flask( __name__ )
 manager = EngineManager()
 
 # Add supported engines to manager:
-manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None ) )
-manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
-manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
+manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None, custom=False ) )
+manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ), custom=False ) )
+manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ), custom=False ) )
+if custom_model_path != None:
+    manager.add_engine( 'custom', EngineStableDiffusion( diffusers.StableDiffusionPipeline, sibling=manager.get_engine( 'txt2img' ), custom=True ) )
+
+
+    # custom_engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path, torch_dtype=torch.float16, safety_checker=manager.get_engine('txt2img').engine.safety_checker, feature_extractor=manager.get_engine('txt2img').engine.feature_extractor)
+    # custom_engine.to( get_compute_platform('engine') )
+    # manager.add_engine( 'custom', custom_engine)
 
 # Define routes:
 @app.route('/ping', methods=['GET'])
@@ -125,6 +145,10 @@ def stable_img2img():
 @app.route('/masking', methods=['POST'])
 def stable_masking():
     return _generate('masking')
+
+@app.route('/custom', methods=['POST'])
+def stable_custom():
+    return _generate('txt2img', 'custom')
 
 def _generate(task, engine=None):
     # Retrieve engine:
