@@ -126,9 +126,12 @@ def stable_img2img():
 def stable_masking():
     return _generate('masking')
 
-def _generate(task):
+def _generate(task, engine=None):
     # Retrieve engine:
-    engine = manager.get_engine( task )
+    if engine == None:
+        engine = task
+
+    engine = manager.get_engine( engine )
 
     # Prepare output container:
     output_data = {}
