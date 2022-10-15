@@ -14,7 +14,7 @@ import diffusers
 # If you want a custom model, add the path here.
 # It will be addressable as POST /custom.
 # custom_model_path = None
-custom_model_path = '/Users/cantrell/Library/CloudStorage/GoogleDrive-christian.cantrell@gmail.com/My Drive/stable_diffusion_weights/ChristianCantrellOutput'
+custom_model_path = 'G:\My Drive\stable_diffusion_weights\ChristianCantrellOutput'
 
 
 ##################################################
@@ -70,7 +70,6 @@ class EngineStableDiffusion(Engine):
             self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=token.strip() )
         elif custom:
             self.engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path,
-                torch_dtype=torch.float16,
                 safety_checker=sibling.engine.safety_checker,
                 feature_extractor=sibling.engine.feature_extractor)
         else:
@@ -123,11 +122,6 @@ manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionI
 manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ), custom=False ) )
 if custom_model_path != None:
     manager.add_engine( 'custom', EngineStableDiffusion( diffusers.StableDiffusionPipeline, sibling=manager.get_engine( 'txt2img' ), custom=True ) )
-
-
-    # custom_engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path, torch_dtype=torch.float16, safety_checker=manager.get_engine('txt2img').engine.safety_checker, feature_extractor=manager.get_engine('txt2img').engine.feature_extractor)
-    # custom_engine.to( get_compute_platform('engine') )
-    # manager.add_engine( 'custom', custom_engine)
 
 # Define routes:
 @app.route('/ping', methods=['GET'])
