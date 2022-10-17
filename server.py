@@ -1,20 +1,15 @@
 import re
 import time
 import inspect
+import json
 import flask
+import sys
 import base64
 from PIL import Image
 from io import BytesIO
 
 import torch
 import diffusers
-
-
-##################################################
-# If you want a custom model, add the path here.
-# It will be addressable as POST /custom.
-# custom_model_path = None
-custom_model_path = 'G:\My Drive\stable_diffusion_weights\ChristianCantrellOutput'
 
 
 ##################################################
@@ -54,7 +49,6 @@ def get_compute_platform(context):
 # Engines
 
 class Engine(object):
-    hf_token = '';
     def __init__(self):
         pass
 
@@ -62,13 +56,11 @@ class Engine(object):
         return []
 
 class EngineStableDiffusion(Engine):
-    def __init__(self, pipe, sibling=None, custom=False):
+    def __init__(self, pipe, sibling=None, custom_model_path=None):
         super().__init__()
         if sibling == None:
-            token_file = open('token.txt', 'r')
-            token = token_file.read()
-            self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=token.strip() )
-        elif custom:
+            self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=hf_token.strip() )
+        elif custom_model_path:
             self.engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path,
                 safety_checker=sibling.engine.safety_checker,
                 feature_extractor=sibling.engine.feature_extractor)
@@ -110,6 +102,21 @@ class EngineManager(object):
 ##################################################
 # App
 
+# Load and parse the config file:
+try:
+    config_file = open ('config.json', 'r')
+except:
+    sys.exit('config.json not found.')
+
+config = json.loads(config_file.read())
+
+hf_token = config['hf_token']
+
+if (hf_token == None):
+    sys.exit('No Hugging Face token found in config.json.')
+
+custom_models = config['custom_models']
+
 # Initialize app:
 app = flask.Flask( __name__ )
 
@@ -117,16 +124,25 @@ app = flask.Flask( __name__ )
 manager = EngineManager()
 
 # Add supported engines to manager:
-manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None, custom=False ) )
-manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ), custom=False ) )
-manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ), custom=False ) )
-if custom_model_path != None:
-    manager.add_engine( 'custom', EngineStableDiffusion( diffusers.StableDiffusionPipeline, sibling=manager.get_engine( 'txt2img' ), custom=True ) )
+manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None ) )
+manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
+manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
+for custom_model in custom_models:
+    manager.add_engine( custom_model['url_path'],
+                        EngineStableDiffusion( diffusers.StableDiffusionPipeline, sibling=manager.get_engine( 'txt2img' ),
+                        custom_model_path=custom_model['model_path'] ) )
 
 # Define routes:
 @app.route('/ping', methods=['GET'])
 def stable_ping():
     return flask.jsonify( {'status':'success'} )
+
+@app.route('/custom_models', methods=['GET'])
+def stable_custom_models():
+    if custom_models == None:
+        return flask.jsonify( [] )
+    else:
+        return custom_models
 
 @app.route('/txt2img', methods=['POST'])
 def stable_txt2img():
@@ -140,9 +156,9 @@ def stable_img2img():
 def stable_masking():
     return _generate('masking')
 
-@app.route('/custom', methods=['POST'])
-def stable_custom():
-    return _generate('txt2img', 'custom')
+@app.route('/custom/<path:model>', methods=['POST'])
+def stable_custom(model):
+    return _generate('txt2img', model)
 
 def _generate(task, engine=None):
     # Retrieve engine:
@@ -198,7 +214,7 @@ def _generate(task, engine=None):
             images.append({
                 'base64' : pil_to_b64( result['image'].convert( 'RGB' ) ),
                 'seed' : result['seed'],
-                'mimetype': 'image/png',
+                'mime_type': 'image/png',
                 'nsfw': result['nsfw']
             })
         output_data[ 'images' ] = images        
