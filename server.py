@@ -115,7 +115,7 @@ hf_token = config['hf_token']
 if (hf_token == None):
     sys.exit('No Hugging Face token found in config.json.')
 
-custom_models = config['custom_models']
+custom_models = config['custom_models'] if 'custom_models' in config else []
 
 # Initialize app:
 app = flask.Flask( __name__ )
