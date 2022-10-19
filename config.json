@@ -1,10 +1,3 @@
 {
-  "hf_token": "your_hugging_face_token",
-  "custom_models": [
-    {
-      "model_path": "/path/to/directory/containing/model_index.json",
-      "ui_label": "My Custom Model",
-      "url_path": "my_custom_model"
-    }
-  ]
+  "hf_token": "your_hugging_face_token"
 }
