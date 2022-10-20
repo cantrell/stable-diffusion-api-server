@@ -120,6 +120,7 @@ Here's an explanation of what the key/value pairs mean:
 - `model_path`: The full path the directory which contains the `model_index.json` file (just the directory; don't include the file itself). Do not escape spaces.
 - `ui_label`: The name of the model as you want it to appear in the Photoshop plugin.
 - `url_path`: A unique, URL-friendly value that will be used as the endpoint path (see the REST API section below).
+- `requires_safety_checker`: Whether or not your custom model expects the safety checker. For models in the Hugging Face diffusers file format, this will be true; for models compiled from checkpoint files into the diffusers file format, this will probably be false.
 
 Once your config file is ready, (re)start the server. If the Photoshop plugin is already loaded, you may need to restart it (or you can just click on the 'Reload Plugin' link in the lower right-hand corner of the 'Generate' tab).
 
@@ -132,14 +133,16 @@ Note that the `custom_model` section of the `config.json` file is an array. That
     {
       "model_path": "/path/to/directory/containing/model_index.json",
       "ui_label": "My First Model",
-      "url_path": "my_first_model"
+      "url_path": "my_first_model",
+      "requires_safety_checker": true
     }
   ],
   [
     {
       "model_path": "/path/to/another/directory/containing/model_index.json",
       "ui_label": "My Second Model",
-      "url_path": "my_second_model"
+      "url_path": "my_second_model",
+      "requires_safety_checker": true
     }
   ]
 }
