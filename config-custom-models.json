@@ -4,7 +4,8 @@
     {
       "model_path": "/path/to/directory/containing/model_index.json",
       "ui_label": "My Custom Model",
-      "url_path": "my_custom_model"
+      "url_path": "my_custom_model",
+      "requires_safety_checker": true
     }
   ]
 }
