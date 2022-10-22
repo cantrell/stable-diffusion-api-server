@@ -4,16 +4,20 @@ A local inference REST API server for the [Stable Diffusion Photoshop plugin](ht
 
 The API server currently supports:
 
-1. Weights automatically downloaded from Hugging Face.
-1. Custom fine-tuned models like those created with [DreamBooth](https://github.com/XavierXiao/Dreambooth-Stable-Diffusion).
+1. Stable Diffusion weights automatically downloaded from Hugging Face.
+1. Custom fine-tuned models in the Hugging Face diffusers file format like those created with [DreamBooth](https://github.com/XavierXiao/Dreambooth-Stable-Diffusion).
+
+(Note that loading checkpoint files directly is not currently supported, but you can easily convert `.ckpt` files into the diffusers format using the aptly named [`convert_original_stable_diffusion_to_diffusers.py`](https://github.com/huggingface/diffusers/blob/main/scripts/convert_original_stable_diffusion_to_diffusers.py) script.)
 
 The server will run on Windows and Linux machines with NVIDIA GPUs, and on M1 Macs. M1 Mac support using MPS (Metal Performance Shaders) is highly experimental (and not easy to configure) but it does work, and it will get better over time.
 
 If you can swing it, for best results, use a dedicated Linux box. Performance on Windows is also very good, but I recommend a dedicated machine with no other apps running. You can run Photoshop on the same machine if you have to, but you will be giving up some of your GPU memory which is good for the Photoshop user experience, but bad for optimal local inference.
 
-**Note that this project includes the content safety filter.**
+**Note that this project uses the content safety filter.**
 
 ## Installation
+
+🤞 If anyone wants to make a detailed installation video, I would love to embed it right here. 🤞
 
 ### Windows, Linux, and Mac Instructions
 
@@ -109,6 +113,8 @@ If you want to use the server (and the Photoshop plugin) with custom-trained mod
 - [A good YouTube tutorial on using the Colab notebook](https://www.youtube.com/watch?v=FaLTztGGueQ).
 - [The original DreamBooth paper](https://arxiv.org/abs/2208.12242).
 
+Loading checkpoint files directly is not currently supported, but you can easily convert `.ckpt` files into the diffusers format using the aptly named [`convert_original_stable_diffusion_to_diffusers.py`](https://github.com/huggingface/diffusers/blob/main/scripts/convert_original_stable_diffusion_to_diffusers.py) script.
+
 Once you have the models trained, the rest is easy. All you have to do is:
 
 1. Replace your `config.json` file with the `config-custom-models.json` template (rename `config-custom-models.json` to `config.json`).
@@ -117,7 +123,7 @@ Once you have the models trained, the rest is easy. All you have to do is:
 
 Here's an explanation of what the key/value pairs mean:
 
-- `model_path`: The full path the directory which contains the `model_index.json` file (just the directory; don't include the file itself). Do not escape spaces.
+- `model_path`: The full path to the directory which contains the `model_index.json` file (just the directory; don't include the file itself). **Do not** escape spaces, but **do** escape backslashes with backslashes (e.g. `G:\\My Drive\\stable_diffusion_weights\\MyCustomModelOutput`).
 - `ui_label`: The name of the model as you want it to appear in the Photoshop plugin.
 - `url_path`: A unique, URL-friendly value that will be used as the endpoint path (see the REST API section below).
 - `requires_safety_checker`: Whether or not your custom model expects the safety checker. For models in the Hugging Face diffusers file format, this will be true; for models compiled from checkpoint files into the diffusers file format, this will probably be false.
@@ -148,9 +154,11 @@ Note that the `custom_model` section of the `config.json` file is an array. That
 }
 ```
 
+To see your custom models in the Generate tab of the Stable Diffusion Photoshop plugin, make sure you've configured your local inference server in the API Key tab.
+
 ## REST API
 
-All `POST` requests use the `application/x-www-form-urlencoded` content type, and all images are base64 encoded strings.
+Note that all `POST` requests use the `application/x-www-form-urlencoded` content type, and all images are base64 encoded strings.
 
 `GET /ping`
 
@@ -169,7 +177,8 @@ All `POST` requests use the `application/x-www-form-urlencoded` content type, an
   {
     "model_path": "/path/to/directory/containing/model_index.json",
     "ui_label": "My First Model",
-    "url_path": "my_first_model"
+    "url_path": "my_first_model",
+    "requires_safety_checker": "true | false"
   }
 ], [...]
 ```
