@@ -108,7 +108,7 @@ If you get the message `ModuleNotFoundError: No module named 'flask'`, it probab
 
 If you want to use the server (and the Photoshop plugin) with custom-trained models, the first thing you need are the custom-trained models themselves. Instructions for how to do so are beyond the scope of this README, but here are some resources:
 
-- [The DreamBooth Stable Diffusion repo](https://github.com/XavierXiao/Dreambooth-Stable-Diffusion) (which has instructions).
+- [My custom fork of the DreamBooth repo](https://github.com/cantrell/Dreambooth-Stable-Diffusion-Tweaked) (dramatically simplified).
 - [A DreamBooth Stable Diffusion Colab notebook](https://colab.research.google.com/github/ShivamShrirao/diffusers/blob/main/examples/dreambooth/DreamBooth_Stable_Diffusion.ipynb) (much easier than training locally).
 - [A good YouTube tutorial on using the Colab notebook](https://www.youtube.com/watch?v=FaLTztGGueQ).
 - [The original DreamBooth paper](https://arxiv.org/abs/2208.12242).
