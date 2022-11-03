@@ -59,7 +59,7 @@ class EngineStableDiffusion(Engine):
         if sibling == None:
             token_file = open('token.txt', 'r')
             token = token_file.read()
-            self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=token.strip() )
+            self.engine = pipe.from_pretrained( 'runwayml/stable-diffusion-v1-5', use_auth_token=token.strip() )
         else:
             self.engine = pipe(
                 vae=sibling.engine.vae,
