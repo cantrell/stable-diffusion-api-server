@@ -59,7 +59,7 @@ class EngineStableDiffusion(Engine):
     def __init__(self, pipe, sibling=None, custom_model_path=None, requires_safety_checker=True):
         super().__init__()
         if sibling == None:
-            self.engine = pipe.from_pretrained( 'CompVis/stable-diffusion-v1-4', use_auth_token=hf_token.strip() )
+            self.engine = pipe.from_pretrained( 'runwayml/stable-diffusion-v1-5', use_auth_token=hf_token.strip() )
         elif custom_model_path:
             if requires_safety_checker:
                 self.engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path,
