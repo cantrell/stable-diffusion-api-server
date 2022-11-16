@@ -15,7 +15,7 @@ config = json.loads(config_file.read())
 
 hf_token = config['hf_token']
 
-if (hf_token == None and config['mode'] != 'proxy'):
+if (hf_token == None and config.get('mode') != 'proxy'):
     sys.exit('No Hugging Face token found in config.json.')
 
 custom_models = config['custom_models'] if 'custom_models' in config else []
