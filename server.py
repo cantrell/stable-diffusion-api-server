@@ -1,110 +1,9 @@
-import re
-import time
-import inspect
 import json
 import flask
 import sys
-import base64
-from PIL import Image
-from io import BytesIO
-
-import torch
 import diffusers
 
-
-##################################################
-# Utils
-
-def retrieve_param(key, data, cast, default):
-    if key in data:
-        value = flask.request.form[ key ]
-        value = cast( value )
-        return value
-    return default
-
-def pil_to_b64(input):
-    buffer = BytesIO()
-    input.save( buffer, 'PNG' )
-    output = base64.b64encode( buffer.getvalue() ).decode( 'utf-8' ).replace( '\n', '' )
-    buffer.close()
-    return output
-
-def b64_to_pil(input):
-    output = Image.open( BytesIO( base64.b64decode( input ) ) )
-    return output
-
-def get_compute_platform(context):
-    try:
-        import torch
-        if torch.cuda.is_available():
-            return 'cuda'
-        elif torch.backends.mps.is_available() and context == 'engine':
-            return 'mps'
-        else:
-            return 'cpu'
-    except ImportError:
-        return 'cpu'
-
-##################################################
-# Engines
-
-class Engine(object):
-    def __init__(self):
-        pass
-
-    def process(self, kwargs):
-        return []
-
-class EngineStableDiffusion(Engine):
-    def __init__(self, pipe, sibling=None, custom_model_path=None, requires_safety_checker=True):
-        super().__init__()
-        if sibling == None:
-            self.engine = pipe.from_pretrained( 'runwayml/stable-diffusion-v1-5', use_auth_token=hf_token.strip() )
-        elif custom_model_path:
-            if requires_safety_checker:
-                self.engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path,
-                                                                                safety_checker=sibling.engine.safety_checker,
-                                                                                feature_extractor=sibling.engine.feature_extractor)
-            else:
-                self.engine = diffusers.StableDiffusionPipeline.from_pretrained(custom_model_path,
-                                                                                feature_extractor=sibling.engine.feature_extractor)
-        else:
-            self.engine = pipe(
-                vae=sibling.engine.vae,
-                text_encoder=sibling.engine.text_encoder,
-                tokenizer=sibling.engine.tokenizer,
-                unet=sibling.engine.unet,
-                scheduler=sibling.engine.scheduler,
-                safety_checker=sibling.engine.safety_checker,
-                feature_extractor=sibling.engine.feature_extractor
-            )
-        self.engine.to( get_compute_platform('engine') )
-
-    def process(self, kwargs):
-        output = self.engine( **kwargs )
-        return {'image': output.images[0], 'nsfw':output.nsfw_content_detected[0]}
-
-class EngineManager(object):
-    def __init__(self):
-        self.engines = {}
-
-    def has_engine(self, name):
-        return ( name in self.engines )
-
-    def add_engine(self, name, engine):
-        if self.has_engine( name ):
-            return False
-        self.engines[ name ] = engine
-        return True
-
-    def get_engine(self, name):
-        if not self.has_engine( name ):
-            return None
-        engine = self.engines[ name ]
-        return engine
-
-##################################################
-# App
+from engine import EngineManager, EngineStableDiffusion, A1111EngineStableDiffusion, InvokeAIEngineStableDiffusion
 
 # Load and parse the config file:
 try:
@@ -116,7 +15,7 @@ config = json.loads(config_file.read())
 
 hf_token = config['hf_token']
 
-if (hf_token == None):
+if (hf_token == None and config['mode'] != 'proxy'):
     sys.exit('No Hugging Face token found in config.json.')
 
 custom_models = config['custom_models'] if 'custom_models' in config else []
@@ -128,14 +27,22 @@ app = flask.Flask( __name__ )
 manager = EngineManager()
 
 # Add supported engines to manager:
-manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None ) )
-manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
-manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
-for custom_model in custom_models:
-    manager.add_engine( custom_model['url_path'],
+if (config.get('mode') != 'proxy'):
+    manager.add_engine( 'txt2img', EngineStableDiffusion( diffusers.StableDiffusionPipeline,        sibling=None ) )
+    manager.add_engine( 'img2img', EngineStableDiffusion( diffusers.StableDiffusionImg2ImgPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
+    manager.add_engine( 'masking', EngineStableDiffusion( diffusers.StableDiffusionInpaintPipeline, sibling=manager.get_engine( 'txt2img' ) ) )
+    for custom_model in custom_models:
+        manager.add_engine( custom_model['url_path'],
                         EngineStableDiffusion( diffusers.StableDiffusionPipeline, sibling=manager.get_engine( 'txt2img' ),
                         custom_model_path=custom_model['model_path'],
                         requires_safety_checker=custom_model['requires_safety_checker'] ) )
+else:
+    engine = None
+    if config['base_provider'] == 'AUTOMATIC1111':
+        engine = A1111EngineStableDiffusion(config['base_url'])
+    elif config['base_provider'] == 'InvokeAI':
+        engine = InvokeAIEngineStableDiffusion(config['base_url'])
+    manager.add_engine('universal', engine)
 
 # Define routes:
 @app.route('/ping', methods=['GET'])
@@ -177,52 +84,7 @@ def _generate(task, engine=None):
 
     # Handle request:
     try:
-        seed = retrieve_param( 'seed', flask.request.form, int, 0 )
-        count = retrieve_param( 'num_outputs', flask.request.form, int,   1 )
-        total_results = []
-        for i in range( count ):
-            if (seed == 0):
-                generator = torch.Generator( device=get_compute_platform('generator') )
-            else:
-                generator = torch.Generator( device=get_compute_platform('generator') ).manual_seed( seed )
-            new_seed = generator.seed()
-            prompt = flask.request.form[ 'prompt' ]
-            args_dict = {
-                'prompt' : [ prompt ],
-                'num_inference_steps' : retrieve_param( 'num_inference_steps', flask.request.form, int,   100 ),
-                'guidance_scale' : retrieve_param( 'guidance_scale', flask.request.form, float, 7.5 ),
-                'eta' : retrieve_param( 'eta', flask.request.form, float, 0.0 ),
-                'generator' : generator
-            }
-            if (task == 'txt2img'):
-                args_dict[ 'width' ] = retrieve_param( 'width', flask.request.form, int,   512 )
-                args_dict[ 'height' ] = retrieve_param( 'height', flask.request.form, int,   512 )
-            if (task == 'img2img' or task == 'masking'):
-                init_img_b64 = flask.request.form[ 'init_image' ]
-                init_img_b64 = re.sub( '^data:image/png;base64,', '', init_img_b64 )
-                init_img_pil = b64_to_pil( init_img_b64 )
-                args_dict[ 'init_image' ] = init_img_pil
-                args_dict[ 'strength' ] = retrieve_param( 'strength', flask.request.form, float, 0.7 )
-            if (task == 'masking'):
-                mask_img_b64 = flask.request.form[ 'mask_image' ]
-                mask_img_b64 = re.sub( '^data:image/png;base64,', '', mask_img_b64 )
-                mask_img_pil = b64_to_pil( mask_img_b64 )
-                args_dict[ 'mask_image' ] = mask_img_pil
-            # Perform inference:
-            pipeline_output = engine.process( args_dict )
-            pipeline_output[ 'seed' ] = new_seed
-            total_results.append( pipeline_output )
-        # Prepare response
-        output_data[ 'status' ] = 'success'
-        images = []
-        for result in total_results:
-            images.append({
-                'base64' : pil_to_b64( result['image'].convert( 'RGB' ) ),
-                'seed' : result['seed'],
-                'mime_type': 'image/png',
-                'nsfw': result['nsfw']
-            })
-        output_data[ 'images' ] = images        
+        output_data = engine.run(task)
     except RuntimeError as e:
         output_data[ 'status' ] = 'failure'
         output_data[ 'message' ] = 'A RuntimeError occurred. You probably ran out of GPU memory. Check the server logs for more details.'
