@@ -6,8 +6,9 @@ The API server currently supports:
 
 1. Stable Diffusion weights automatically downloaded from Hugging Face.
 1. Custom fine-tuned models in the Hugging Face diffusers file format like those created with [DreamBooth](https://github.com/XavierXiao/Dreambooth-Stable-Diffusion).
+1. Running as a [proxy server](#proxy-mode) for [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) and [InvokeAI](https://github.com/invoke-ai/InvokeAI/).
 
-(Note that loading checkpoint files directly is not currently supported, but you can easily convert `.ckpt` files into the diffusers format using the aptly named [`convert_original_stable_diffusion_to_diffusers.py`](https://github.com/huggingface/diffusers/blob/main/scripts/convert_original_stable_diffusion_to_diffusers.py) script.)
+(Note that loading checkpoint files directly is not currently supported in regular mode, but you can easily convert `.ckpt` files into the diffusers format using the aptly named [`convert_original_stable_diffusion_to_diffusers.py`](https://github.com/huggingface/diffusers/blob/main/scripts/convert_original_stable_diffusion_to_diffusers.py) script.) or use [proxy mode](#proxy-mode).
 
 The server will run on Windows and Linux machines with NVIDIA GPUs, and on M1 Macs. M1 Mac support using MPS (Metal Performance Shaders) is highly experimental (and not easy to configure) but it does work, and it will get better over time.
 
@@ -155,6 +156,24 @@ Note that the `custom_model` section of the `config.json` file is an array. That
 ```
 
 To see your custom models in the Generate tab of the Stable Diffusion Photoshop plugin, make sure you've configured your local inference server in the API Key tab.
+
+## Proxy mode
+
+To use this server in proxy mode, run the base server with the following flags:  
+for AUTOMATIC1111, you need to add `--api` argument  
+for InvokeAI, you need to run scripts/legacy_api.py with `--web` argument  
+  
+after doing this, you need to add the following parameters to `config.json`:  
+
+```
+{
+  ...
+  "mode": "proxy",
+  "base_provider": "AUTOMATIC1111" or "InvokeAI",
+  "base_url": "http://localhost:7860" or "http://localhost:9090" or any other IP/Port of your base server
+}
+```
+
 
 ## REST API
 
