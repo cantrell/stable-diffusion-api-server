@@ -10,7 +10,7 @@ dependencies:
   - torchvision=0.13.1
   - numpy=1.19.2
   - pip:
-      - diffusers
+      - diffusers==0.12.1
       - transformers==4.19.2
       - Pillow
       - Flask
