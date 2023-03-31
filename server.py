@@ -7,6 +7,7 @@ import sys
 import base64
 from PIL import Image
 from io import BytesIO
+from multiprocessing import Pool
 
 import torch
 import diffusers
@@ -106,6 +107,8 @@ class EngineManager(object):
 ##################################################
 # App
 
+gpu_count = torch.cuda.device_count()
+
 # Load and parse the config file:
 try:
     config_file = open ('config.json', 'r')
@@ -179,7 +182,7 @@ def _generate(task, engine=None):
     try:
         seed = retrieve_param( 'seed', flask.request.form, int, 0 )
         count = retrieve_param( 'num_outputs', flask.request.form, int,   1 )
-        total_results = []
+        prompt_list = []
         for i in range( count ):
             if (seed == 0):
                 generator = torch.Generator( device=get_compute_platform('generator') )
@@ -208,10 +211,15 @@ def _generate(task, engine=None):
                 mask_img_b64 = re.sub( '^data:image/png;base64,', '', mask_img_b64 )
                 mask_img_pil = b64_to_pil( mask_img_b64 )
                 args_dict[ 'mask_image' ] = mask_img_pil
-            # Perform inference:
-            pipeline_output = engine.process( args_dict )
-            pipeline_output[ 'seed' ] = new_seed
-            total_results.append( pipeline_output )
+            prompt_list.append( args_dict )
+
+        # Perform inference:
+        total_results = []
+        if __name__ == '__main__':
+            with Pool(processes=gpu_count) as pool:
+                for prompt_args in pool.imap_unordered(engine.process, prompt_list):
+                    total_results.append( pipeline_output )
+
         # Prepare response
         output_data[ 'status' ] = 'success'
         images = []
